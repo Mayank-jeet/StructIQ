@@ -2,9 +2,6 @@
 
 Single source of truth: notebooks, training code and the API all import from
 here, so the cleaning steps can never drift apart.
-
-Run from the backend/ folder to regenerate the processed file:
-    python -m src.features
 """
 from pathlib import Path
 
@@ -14,8 +11,6 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 RAW_PATH = BACKEND_DIR / "data" / "raw" / "concrete.csv"
 PROCESSED_PATH = BACKEND_DIR / "data" / "processed" / "concrete_clean.csv"
 
-# Column order is fixed by the UCI file. We rename by position because the
-# original headers are long and messy (units, double spaces, trailing space).
 COLUMNS = [
     "cement", "slag", "fly_ash", "water", "superplasticizer",
     "coarse_agg", "fine_agg", "age_days", "strength_mpa",
