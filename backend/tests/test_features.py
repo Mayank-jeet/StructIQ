@@ -1,6 +1,6 @@
 import pandas as pd
 
-from src.features import COLUMNS, add_recipe_id, clean, load_raw, split_dev_test
+from src.features import COLUMNS, add_features, add_recipe_id, clean, load_raw, split_dev_test
 
 
 def make_df(rows):
@@ -56,3 +56,11 @@ def test_real_data_counts():
     assert len(df) == 1005
     dev, test = split_dev_test(df)
     assert dev["recipe_id"].nunique() + test["recipe_id"].nunique() == 428
+
+
+def test_add_features_values_and_no_mutation():
+    df = make_df([[200, 0, 0, 100, 0, 1000, 700, 1, 30.0]])
+    out = add_features(df)
+    assert out["water_cement_ratio"].iloc[0] == 0.5  # 100 / 200
+    assert out["log_age"].iloc[0] == 0.0  # log(1)
+    assert "log_age" not in df.columns  # input untouched

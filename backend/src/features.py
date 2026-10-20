@@ -5,6 +5,7 @@ here, so the cleaning steps can never drift apart.
 """
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from sklearn.model_selection import GroupShuffleSplit
 
@@ -23,6 +24,7 @@ FEATURES = [c for c in COLUMNS if c != TARGET]
 INGREDIENTS = [c for c in FEATURES if c != "age_days"]  # a 'recipe' = all ingredients, any age
 TEST_SIZE = 0.2  # fraction of recipes (not rows) held out
 SEED = 42
+ENGINEERED = ["log_age", "water_cement_ratio"]
 
 
 def load_raw(path: Path = RAW_PATH) -> pd.DataFrame:
@@ -45,6 +47,18 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
 def save_processed(df: pd.DataFrame, path: Path = PROCESSED_PATH) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(path, index=False)
+
+
+def add_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Add two domain-driven features (returns a copy; the input is not modified).
+
+    log_age: strength gain with age is curved (fast early, then flat); log straightens it
+    water_cement_ratio: the classic concrete rule, less water per cement means stronger concrete
+    """
+    out = df.copy()
+    out["log_age"] = np.log(out["age_days"])
+    out["water_cement_ratio"] = out["water"] / out["cement"]
+    return out
 
 
 def add_recipe_id(df: pd.DataFrame) -> pd.DataFrame:
