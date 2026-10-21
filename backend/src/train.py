@@ -29,7 +29,7 @@ def xgb_params(trial: optuna.Trial) -> dict:
         "n_estimators": trial.suggest_int("n_estimators", 100, 800),
         "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.3, log=True),
         "max_depth": trial.suggest_int("max_depth", 2, 8),
-        "min_child_weight": trial.suggest_int("min_child_weight", 1, 10),
+        "min_child_weight": trial.suggest_int("min_child_weight", 1, 20),
         "subsample": trial.suggest_float("subsample", 0.6, 1.0),
         "colsample_bytree": trial.suggest_float("colsample_bytree", 0.6, 1.0),
         "reg_lambda": trial.suggest_float("reg_lambda", 1e-3, 10.0, log=True),
@@ -40,7 +40,7 @@ def lgbm_params(trial: optuna.Trial) -> dict:
     return {
         "n_estimators": trial.suggest_int("n_estimators", 100, 800),
         "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.3, log=True),
-        "num_leaves": trial.suggest_int("num_leaves", 4, 64),
+        "num_leaves": trial.suggest_int("num_leaves", 4, 128),
         "min_child_samples": trial.suggest_int("min_child_samples", 5, 50),
         "subsample": trial.suggest_float("subsample", 0.6, 1.0),
         "colsample_bytree": trial.suggest_float("colsample_bytree", 0.6, 1.0),
