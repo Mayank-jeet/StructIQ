@@ -1,5 +1,6 @@
 import pandas as pd
 
+from src.evaluate import error_by_bin
 from src.features import COLUMNS, add_features, add_recipe_id, clean, load_raw, split_dev_test
 
 
@@ -64,3 +65,15 @@ def test_add_features_values_and_no_mutation():
     assert out["water_cement_ratio"].iloc[0] == 0.5  # 100 / 200
     assert out["log_age"].iloc[0] == 0.0  # log(1)
     assert "log_age" not in df.columns  # input untouched
+
+
+def test_error_by_bin_counts_and_bias():
+    df = pd.DataFrame({
+        "age_days": [1, 3, 7],
+        "strength_mpa": [10.0, 20.0, 30.0],
+        "pred": [12.0, 18.0, 33.0],  # errors: +2, -2, +3
+    })
+    out = error_by_bin(df, "age_days", [0, 3, 7])  # bins (0,3] and (3,7]
+    assert out["n"].tolist() == [2, 1]
+    assert out["mae"].tolist() == [2.0, 3.0]
+    assert out["bias"].tolist() == [0.0, 3.0]
