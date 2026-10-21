@@ -7,3 +7,6 @@ scikit-learn
 jupyter
 ipykernel
 pytest
+xgboost
+lightgbm
+optuna
