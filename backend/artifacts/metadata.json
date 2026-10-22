@@ -1,0 +1,35 @@
+{
+  "model": "lightgbm",
+  "features": [
+    "cement",
+    "slag",
+    "fly_ash",
+    "water",
+    "superplasticizer",
+    "coarse_agg",
+    "fine_agg",
+    "age_days"
+  ],
+  "params": {
+    "n_estimators": 412,
+    "learning_rate": 0.04654932622133921,
+    "num_leaves": 116,
+    "min_child_samples": 9,
+    "subsample": 0.8757623799158932,
+    "colsample_bytree": 0.9933831513698906,
+    "reg_lambda": 0.217992237826598
+  },
+  "dev_cv_oof_metrics": {
+    "rmse": 5.471097199189838,
+    "mae": 3.849696351125592,
+    "r2": 0.8801011781093034
+  },
+  "test_metrics": {
+    "rmse": 6.52822372805917,
+    "mae": 4.295860477503244,
+    "r2": 0.8679172248340021
+  },
+  "n_dev_rows": 799,
+  "n_test_rows": 206,
+  "lightgbm_version": "4.7.0"
+}

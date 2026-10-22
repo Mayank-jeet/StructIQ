@@ -3,6 +3,9 @@
 Same rule as everywhere else: folds are grouped by recipe_id, so a recipe never
 appears in both the training and validation part of a fold.
 """
+import json
+
+import joblib
 import numpy as np
 import optuna
 from lightgbm import LGBMRegressor
@@ -10,9 +13,11 @@ from sklearn.model_selection import GroupKFold
 from xgboost import XGBRegressor
 
 from src.evaluate import regression_metrics
+from src.features import BACKEND_DIR
 
 N_SPLITS = 5  # how we MEASURE the model; not something we tune
 SEED = 42
+ARTIFACTS_DIR = BACKEND_DIR / "artifacts"
 
 
 def cv_rmse(make_model, X, y, groups, n_splits: int = N_SPLITS) -> np.ndarray:
@@ -73,3 +78,14 @@ def tune(name: str, X, y, groups, n_trials: int = 50, seed: int = SEED) -> optun
 def build_model(name: str, params: dict):
     """Fresh model of the given type with the given (e.g. tuned) parameters."""
     return MODELS[name][1](params)
+
+
+def save_model(model, metadata: dict, directory=ARTIFACTS_DIR) -> None:
+    """Save the trained model (model.pkl) and a small metadata.json next to it.
+
+    The metadata records the feature order, tuned params, scores and library
+    version, so the API knows how to call the model and results can be traced.
+    """
+    directory.mkdir(parents=True, exist_ok=True)
+    joblib.dump(model, directory / "model.pkl")
+    (directory / "metadata.json").write_text(json.dumps(metadata, indent=2))
