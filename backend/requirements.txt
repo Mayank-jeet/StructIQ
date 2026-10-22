@@ -10,3 +10,4 @@ pytest
 xgboost
 lightgbm
 optuna
+shap
