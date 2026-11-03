@@ -29,6 +29,14 @@ def cv_rmse(make_model, X, y, groups, n_splits: int = N_SPLITS) -> np.ndarray:
     return np.array(scores)
 
 
+def oof_predictions(make_model, X, y, groups, n_splits: int = N_SPLITS) -> np.ndarray:
+    """Out-of-fold predictions: every row is predicted by a model that never saw its group."""
+    pred = np.zeros(len(X))
+    for tr, va in GroupKFold(n_splits=n_splits).split(X, y, groups):
+        pred[va] = make_model().fit(X.iloc[tr], y.iloc[tr]).predict(X.iloc[va])
+    return pred
+
+
 def xgb_params(trial: optuna.Trial) -> dict:
     return {
         "n_estimators": trial.suggest_int("n_estimators", 100, 800),
