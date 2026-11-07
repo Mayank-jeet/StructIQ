@@ -3,51 +3,51 @@ import { getHealth } from "./api";
 import PredictionPanel from "./components/PredictionPanel";
 import AnalyticsPanel from "./components/AnalyticsPanel";
 import ExperimentPanel from "./components/ExperimentPanel";
+import IntroScene from "./components/IntroScene";
+
+const prefersReducedMotion =
+  typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const TABS = [
-  { id: "predict", label: "Predict & explain", Panel: PredictionPanel },
-  { id: "analytics", label: "SQL analytics", Panel: AnalyticsPanel },
-  { id: "experiment", label: "A/B experiment", Panel: ExperimentPanel },
+  { id: "predict", title: "Predict", Panel: PredictionPanel },
+  { id: "analyse", title: "Analyse", Panel: AnalyticsPanel },
+  { id: "experiment", title: "Experiment", Panel: ExperimentPanel },
 ];
 
 export default function App() {
   const [tab, setTab] = useState("predict");
   const [health, setHealth] = useState(null);
-  const [offline, setOffline] = useState(false);
+  const [intro, setIntro] = useState(!prefersReducedMotion); // 3D intro, shown on every load
+  const [revealing, setRevealing] = useState(false);
 
-  // Ask the API who it is once; the badge tells the user at a glance whether the backend is up.
+  // Fetched quietly: the model's typical error draws the shaded band on the strength ruler.
   useEffect(() => {
-    getHealth().then(setHealth).catch(() => setOffline(true));
+    getHealth().then(setHealth).catch(() => {});
   }, []);
 
   const Active = TABS.find((t) => t.id === tab).Panel;
 
   return (
-    <div className="app">
-      <header>
-        <div>
-          <h1>StructIQ</h1>
-          <p className="muted">Concrete strength prediction, SQL analytics and A/B experimentation</p>
+    <>
+    <div className={"frame" + (revealing ? " reveal" : "")}>
+      <header className="topbar">
+        <div className="topbar-inner">
+          <span className="brand">StructIQ</span>
+          <nav className="rail" aria-label="Sections">
+            {TABS.map(({ id, title }) => (
+              <button key={id} aria-current={id === tab ? "page" : undefined} onClick={() => setTab(id)}>
+                {title}
+              </button>
+            ))}
+          </nav>
         </div>
-        {health && (
-          <span className="badge ok">
-            API online · {health.model} · test RMSE {health.test_metrics.rmse.toFixed(2)} MPa
-          </span>
-        )}
-        {offline && <span className="badge bad">API not reachable</span>}
       </header>
 
-      <nav>
-        {TABS.map(({ id, label }) => (
-          <button key={id} className={id === tab ? "tab active" : "tab"} onClick={() => setTab(id)}>
-            {label}
-          </button>
-        ))}
-      </nav>
-
-      <main>
-        <Active />
+      <main className="sheet">
+        <Active health={health} />
       </main>
     </div>
+    {intro && <IntroScene onLeaveStart={() => setRevealing(true)} onDone={() => setIntro(false)} />}
+    </>
   );
 }
