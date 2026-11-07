@@ -11,3 +11,6 @@ xgboost
 lightgbm
 optuna
 shap
+fastapi
+uvicorn
+httpx
