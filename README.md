@@ -1,6 +1,10 @@
 # StructIQ
 
-Concrete compressive strength prediction, with SQL analytics and a simulated A/B (causal) experiment module on top.
+Concrete compressive strength prediction, with SQL analytics and a simulated A/B (causal) experiment module on top, served by a FastAPI backend and a React dashboard.
+
+**Live demo: https://struct-iq-concrete.vercel.app**
+
+The backend runs on Render's free plan, which sleeps when idle, so the first load after a quiet period can take up to a minute while it wakes up.
 
 A civil-engineering question ("how strong will this concrete mix be at a given age?") answered with a full, honestly evaluated ML pipeline: cleaning, leakage-safe splitting, baselines, tuning, error analysis, SHAP explanations and a final held-out test score.
 
@@ -10,9 +14,9 @@ A civil-engineering question ("how strong will this concrete mix be at a given a
 |---|---|---|
 | 1 | Data + EDA, cleaning pipeline, leakage-safe split | Done |
 | 2 | Modeling: baselines, XGBoost / LightGBM, Optuna, error analysis, SHAP, final test score | Done |
-| 3 | SQL analytics layer (SQLite, window functions, CTEs) | Planned |
-| 4 | Simulated A/B experiment: power analysis, CUPED, confidence intervals | Planned |
-| 5 | FastAPI backend + dashboard, deployment | Planned |
+| 3 | SQL analytics layer (SQLite, window functions, CTEs) | Done |
+| 4 | Simulated A/B experiment: power analysis, CUPED, confidence intervals | Done |
+| 5 | FastAPI backend + React dashboard, deployment (Render + Vercel) | Done, [live](https://struct-iq-concrete.vercel.app) |
 
 ## Headline results
 
@@ -36,13 +40,18 @@ Final model: **LightGBM**, tuned with Optuna, trained on the 8 raw ingredient an
 | Modeling | scikit-learn, XGBoost, LightGBM |
 | Tuning | Optuna (TPE sampler, seeded) |
 | Explainability | SHAP (TreeExplainer) |
+| Analytics | SQLite, SQL (CTEs, window functions) |
+| Experiment statistics | SciPy (Welch t-test, power analysis), CUPED, Monte Carlo |
+| API | FastAPI, Pydantic, Uvicorn |
+| Dashboard | React 18, Vite, Recharts, three.js (intro scene) |
 | Testing | pytest |
-| Planned | SQLite/Postgres, FastAPI, React or Streamlit, Render/Vercel |
+| Deployment | Render (API), Vercel (dashboard) |
 
 ## Repo structure
 
 ```
 StructIQ/
+  render.yaml                       Render Blueprint for the API service
   backend/
     data/
       raw/concrete.csv              original UCI file, never edited
@@ -50,18 +59,27 @@ StructIQ/
     notebooks/
       01_eda.ipynb                  exploration and findings
       02_modeling.ipynb             baselines -> trees -> tuning -> errors -> SHAP -> test
+      03_experiment.ipynb           simulated A/B experiment, naive vs CUPED
     src/
       features.py                   load, clean, add_features, recipe ids, dev/test split
       evaluate.py                   regression_metrics, error_by_bin
       train.py                      grouped CV, Optuna search spaces, save_model
       explain.py                    SHAP values, global importance
+      experiment.py                 power analysis, Welch t-test, CUPED, Monte Carlo
+    db/
+      schema.sql                    mixes and predictions tables
+      queries.sql                   named analytical queries
+      queries.py                    load and run the named queries
+      load_data.py                  builds structiq.db (gitignored, rebuilt on deploy)
+    api/main.py                     FastAPI app (predict, explain, queries, experiment)
     artifacts/                      model.pkl, metadata.json (feature order, params, scores)
-    tests/                          10 tests (cleaning, split, features, CV, SHAP, saving)
-    requirements.txt
-  web/                              dashboard (Phase 5)
+    tests/                          pytest suite (features, train, explain, db, queries, experiment, api)
+    requirements.txt                full environment (notebooks, tuning)
+    requirements-api.txt            lean runtime dependencies for deployment
+  web/                              React + Vite dashboard (Predict, Analyse, Experiment)
 ```
 
-## How to run
+## How to run locally
 
 ```bash
 python -m venv .venv
@@ -69,10 +87,35 @@ python -m venv .venv
 pip install -r backend/requirements.txt
 cd backend
 python -m src.features                 # regenerates processed/dev/test CSVs
-python -m pytest tests -q              # 10 tests
+python -m db.load_data                 # builds db/structiq.db
+python -m pytest tests -q              # run the tests
+uvicorn api.main:app --reload          # API at http://127.0.0.1:8000 (docs at /docs)
 ```
 
-Then open the notebooks in `backend/notebooks/` and run them top to bottom.
+In a second terminal, start the dashboard:
+
+```bash
+cd web
+npm install
+npm run dev                            # http://localhost:5173
+```
+
+The dashboard reads the API address from `VITE_API_URL` (see `web/.env.example`). Open the notebooks in `backend/notebooks/` and run them top to bottom to see the analysis.
+
+## Deployment
+
+| Part | Host | Settings |
+|---|---|---|
+| API | Render (free web service, created from `render.yaml`) | Root `backend`; build `pip install -r requirements-api.txt && python -m db.load_data`; start `uvicorn api.main:app --host 0.0.0.0 --port $PORT`; health check `/health` |
+| Dashboard | Vercel | Root `web`; Vite preset; build `npm run build`; output `dist` |
+
+| Variable | Where | Value |
+|---|---|---|
+| `CORS_ORIGINS` | Render | the dashboard URL, `https://struct-iq-concrete.vercel.app` (no trailing slash; comma-separate several) |
+| `PYTHON_VERSION` | Render | `3.11.9` (set in `render.yaml`) |
+| `VITE_API_URL` | Vercel | the Render API URL, no trailing slash (baked in at build time, so redeploy after changing it) |
+
+`structiq.db` is not committed. The build step regenerates it from the processed CSVs and the saved model, and prints a check that its RMSE matches the one in `metadata.json`.
 
 ---
 
@@ -252,6 +295,65 @@ Candidates were judged on dev out-of-fold predictions only, with a rule fixed be
 
 ---
 
+## Phase 3 - SQL analytics
+
+All cleaned rows and the model's honest predictions are loaded into SQLite (`backend/db/structiq.db`, rebuilt by `python -m db.load_data`):
+
+- **`mixes`**: every row (dev and test) with a stable `mix_id`, its `recipe_id`, the 8 features, the measured strength and its split.
+- **`predictions`**: one prediction per row. Dev rows get **out-of-fold** predictions, so no row is scored by a model that saw its recipe. Test rows get the final model, which was trained on dev only.
+- The loader checks that RMSE computed from the database matches the RMSE saved in `metadata.json`.
+
+Five named queries live in `queries.sql` and are served by the API and the Analyse tab:
+
+| Query | What it answers | SQL used |
+|---|---|---|
+| `strength_by_cement_bucket` | How average strength changes as cement rises | `CASE`, `GROUP BY` |
+| `error_by_strength_bin` | Where the model is wrong (MAE, RMSE, bias by true-strength bin) | CTE, `JOIN` |
+| `strength_gain_by_recipe` | Strength gained between tests of the same recipe | `LAG`, `FIRST_VALUE`, named window |
+| `worst_predictions_by_age` | The 3 largest misses in each age group | `ROW_NUMBER() OVER (PARTITION BY ...)` |
+| `wc_ratio_rolling_strength` | Strength vs water/cement ratio at 28 days, with a rolling average | rolling window, `NTILE` |
+
+A sixth query, `experiment_pool`, supplies the specimens for the Phase 4 experiment.
+
+---
+
+## Phase 4 - Simulated A/B experiment
+
+The UCI data is observational, so it has no real experiment in it. This module **simulates** one (and is labelled that way in the app): specimens are drawn at random from the pool, half are randomly assigned to a "new curing method", and a known true effect (in MPa) is added to the treated ones. Because the truth is known, each statistical tool can be checked against it.
+
+- **Power analysis:** specimens needed per arm to detect a given effect at a chosen significance level and 80% power.
+- **Welch t-test:** uplift estimate with standard error, confidence interval and p-value.
+- **CUPED:** variance reduction using the model's out-of-fold prediction as the pre-treatment covariate, so the same effect can be detected with fewer specimens.
+- **Monte Carlo check:** repeat the experiment many times and confirm the estimate is unbiased, that confidence intervals cover the truth about 95% of the time, and that false positives sit near 5% when the true effect is zero.
+
+The code is in `src/experiment.py`, the walkthrough in `notebooks/03_experiment.ipynb`, and it is exposed through `POST /experiment`.
+
+---
+
+## Phase 5 - API, dashboard and deployment
+
+### API (FastAPI)
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /health` | Model name and test metrics, proves the service is alive |
+| `POST /predict` | Mix design to predicted strength, with a warning for features outside the training range |
+| `POST /explain` | Prediction split into a base value plus one SHAP contribution per feature |
+| `GET /queries` | Names of the available SQL analyses |
+| `GET /query/{name}` | Run one named analysis and return its rows as JSON |
+| `POST /experiment` | Run the simulated A/B test, naive vs CUPED |
+
+The model is loaded once at startup. Inputs are validated with Pydantic (physically impossible values are rejected). Since tree models cannot extrapolate, `out_of_range` lists any feature outside the range the model has seen.
+
+### Dashboard (React + Vite)
+
+- **Predict:** enter a mix, get the predicted strength on a ruler, and see which ingredients pushed it up or down (SHAP).
+- **Analyse:** browse the SQL analyses as charts and tables.
+- **Experiment:** run the simulated A/B test and compare the naive and CUPED analyses.
+- A short three.js intro scene of a concrete mixer plays on load. The UI uses a dark black-and-white theme.
+
+---
+
 ## Design decisions and lessons
 - **Split by recipe, not by row**, to stop the same mix leaking across ages. Cleaning happens before splitting.
 - **Compare against a fair baseline.** Giving linear regression `log_age` raised it from R² 0.57 to 0.80 and shrank the apparent advantage of tree models.
@@ -266,12 +368,13 @@ Candidates were judged on dev out-of-fold predictions only, with a rule fixed be
 - The dataset is small (1,005 rows after cleaning, 428 recipes), and test-set errors in narrow bins rest on few rows (23 rows above 60 MPa).
 - The 56-day error and the exact roles of correlated features (water and superplasticizer) are unexplained.
 - SHAP values describe the model, not causal effects.
-- The planned A/B module will be a **simulation** on top of this data. It is not a real experiment, and it will be labelled that way.
+- The A/B module is a **simulation** on top of this data. It is not a real experiment, and the app labels it that way.
+- The API runs on a free tier, so it sleeps when idle and the first request can be slow. Memory is limited on that plan.
 
-## Roadmap
-- **Phase 3:** load raw and predicted data into SQLite, and write analytical queries (CTEs, window functions) such as strength trend by cement bucket.
-- **Phase 4:** simulated mix-design or curing intervention with power analysis, two-sample test, CUPED variance reduction and confidence intervals on the uplift.
-- **Phase 5:** FastAPI (`/predict`, `/explain`, `/query`, `/experiment`), a dashboard, and deployment.
+## Possible next steps
+- Revisit monotone constraints (cement up, water down, age up) or gather more data above 60 MPa to reduce the under-prediction of strong concrete.
+- Match near-identical recipes (rounded ingredient amounts) when splitting, to remove the remaining mild leakage.
+- Move the API to a paid or always-on plan to avoid cold starts.
 
 ## Author
 
