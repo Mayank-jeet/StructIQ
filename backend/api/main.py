@@ -49,9 +49,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="StructIQ", version="1.0", lifespan=lifespan)
 
-# Browsers block a page on one address (the dashboard) from calling an API on another unless
-# the API says so. CORS_ORIGINS lets us allow the deployed dashboard URL without code changes.
-origins = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000,http://localhost:8501").split(",")
+_raw_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000,http://localhost:8501")
+origins = [o.strip().rstrip("/") for o in _raw_origins.split(",") if o.strip()]
 app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["*"], allow_headers=["*"])
 
 
