@@ -31,8 +31,11 @@ from src.experiment import (
     simulate_experiment,
 )
 from src.explain import base_value, shap_values
-from src.features import PROCESSED_PATH
-from src.train import ARTIFACTS_DIR
+from src.features import BACKEND_DIR, PROCESSED_PATH
+
+# Defined here instead of imported from src.train: that module pulls in optuna and xgboost,
+# which the running API never uses but would still load on every cold start.
+ARTIFACTS_DIR = BACKEND_DIR / "artifacts"
 
 
 # --------------------------------------------------------------------------- startup
