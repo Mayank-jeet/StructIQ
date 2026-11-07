@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="#14212e"/>
+  <defs>
+    <clipPath id="drum">
+      <path d="M8 25 L34 13 C48 13 54 22 54 32 C54 42 48 51 34 51 L8 39 Z"/>
+    </clipPath>
+  </defs>
+  <g transform="translate(32 32) rotate(25) scale(0.85) translate(-31 -32)">
+    <path d="M8 25 L34 13 C48 13 54 22 54 32 C54 42 48 51 34 51 L8 39 Z" fill="#e8b923"/>
+    <g clip-path="url(#drum)" stroke="#14212e" stroke-width="4" opacity="0.55">
+      <path d="M20 8 L28 56"/>
+      <path d="M32 8 L40 56"/>
+      <path d="M44 8 L52 56"/>
+    </g>
+  </g>
+</svg>
