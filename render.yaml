@@ -1,0 +1,16 @@
+# Render Blueprint: describes the API service so it can be created from the repo in one click.
+services:
+  - type: web
+    name: structiq-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    # 1) install runtime deps, 2) rebuild structiq.db (it is gitignored) and re-check its numbers
+    buildCommand: pip install -r requirements-api.txt && python -m db.load_data
+    startCommand: uvicorn api.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: CORS_ORIGINS
+        sync: false # set in the Render dashboard to the Vercel URL

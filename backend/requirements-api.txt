@@ -1,0 +1,14 @@
+# Runtime dependencies for the deployed API (Render). Pinned to the exact versions the model was
+# trained and tested with: a pickled model can break or change results under different library versions.
+# requirements.txt (dev: notebooks, tests, plotting) stays separate so deploys install less.
+pandas==3.0.6
+numpy==2.4.6
+scipy==1.17.1
+scikit-learn==1.9.1
+joblib==1.6.0
+lightgbm==4.7.0
+xgboost==3.2.0
+optuna==5.0.0
+shap==0.51.0
+fastapi==0.162.0
+uvicorn==0.54.0
